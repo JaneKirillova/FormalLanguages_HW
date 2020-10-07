@@ -1,135 +1,127 @@
-from lex import *
-
-class Node:
-    def __init__(self, left, right, name):
-        self.left = left
-        self.right = right
-        self.name = name
-
-
-class Parser:
-    def __init__(self, s):
-        self.lex = lexerr(s)
-        self.current = next(self.lex)
-        self.last_correct = None
-
-    def accept(self, c):
-        if self.current == '\0':
-            return False
-        if self.current.type == c:
-            self.last_correct = self.current
-            self.current = next(self.lex)
-            return True
-        return False
-
-    def expr(self):
-        if self.current == '\0':
-            return None
-        l = self.current
-        if self.accept('LEFTBRACE'):
-            r = self.disj()
-            if self.accept('RIGHTBRACE'):
-                return r
-            return None
-        self.last_correct = l
-        self.current = next(self.lex)
-        if l.type != 'ID':
-            return None
-        return Node(None, None, l.value)
-
-    def head(self):
-        if self.current == '\0':
-            return -1
-        l = self.current
-        self.last_correct = l
-        self.current = next(self.lex)
-        if l.type != 'ID':
-            return None
-        return Node(None, None, l.value)
+'''
+input ----> relation. | relation . input
+relation -> atom      | atom :- disj
+disj -----> conj      | conj ; disj
+conj -----> expr      | expr , conj
+expr -----> atom      | ( disj )
+atom -----> ID        | ID tail
+tail -----> atom      | braces       | braces tail
+braces ---> ( atom )  | ( braces )
 
 
-    def disj(self):
-        l = self.conj()
-        if self.accept('DISJ'):
-            r = self.disj()
-            if r == None:
-                return None
-            return Node(l, r, ";")
-        return l
+'''
 
 
-    def conj(self):
-        l = self.expr()
-        if self.accept('CONJ'):
-            r = self.conj()
-            if r == None:
-                return None
-            return Node(l, r, ",")
-        return l
+import ply.yacc as yacc
+
+from lex import*
+
+import sys
 
 
-    def corkscrew (self):
-        if self.accept('CORCSCREW'):
-            r = self.disj()
-            return r
-        return None
+def p_input_relation(p):
+	'input : relation DOT'
+	p[0] = p[1]
 
-    def relation(self):
-        l = self.head()
-        if l == None or l == -1:
-            return l
-        if self.accept('DOT'):
-            return l
-        r = self.corkscrew()
-        if r == None:
-            return None
-        if not self.accept('DOT'):
-            return None
-        return Node(l, r, ':-')
+def p_input_input(p):
+	'input : relation DOT input'
+	p[0] = p[1] + '\n' + p[3]
 
 
-def lexerr(s):
-    for c in s:
-        yield c
-    while True:
-        yield '\0'
+def p_relation_corc(p):
+	'relation : atom CORC disj'
+	p[0] = ':- (' + p[1] + ') (' + p[3] + ')'
+
+def p_relation_dot(p):
+	'relation : atom'
+	p[0] = p[1]
 
 
-def pr(node):
-    a = "("
-    if node.left != None:
-        a += pr(node.left)
-    a += " " + node.name + " "
-    if node.right != None:
-        a += pr(node.right)
-    a += ')'
-    return a
+def p_disj_disj(p):
+	'disj : conj DISJ disj'
+	p[0] = ' DISJ (' + p[1] + ') (' + p[3] + ')'
 
 
-def parse(file_name):
+def p_disj_conj(p):
+	'disj : conj'
+	p[0] = p[1]
+
+
+def p_conj_conj(p): 
+	'conj : expr CONJ conj'
+	p[0] = ' CONJ (' + p[1] + ') (' + p[3] + ')'
+
+def p_conj_expr(p):
+	'conj : expr'
+	p[0] = p[1]
+
+
+def p_expr_disj(p):
+	'expr : LBC disj RBC'
+	p[0] = '( ' + p[2] + ' )'
+
+def p_expr_atom(p):
+	'expr : atom'
+	p[0] = p[1]
+
+
+def p_atom_id(p):
+	'atom : ID'
+	p[0] = '( ' + p[1] + ' )'
+
+def p_atom_tail(p):
+	'atom : ID tail'
+	p[0] = '( ' + p[1] + ' ) ' + p[2]
+
+
+def p_tail_atom(p):
+	'tail : atom'
+	p[0] = p[1]
+
+
+def p_tail_braces(p):
+	'tail : braces'
+	p[0] = '(' + p[1] + ')'
+
+
+def p_tail_braces_tail(p):
+	'tail : braces tail'
+	p[0] = '(' + p[1] + ')' + p[2]
+
+def p_braces_atom(p):
+	'braces : LBC atom RBC'
+	p[0] = '( ' + p[2] + ' )'
+
+def p_braces_braces(p):
+	'braces : LBC braces RBC'
+	p[0] = '(' + p[2] + ')'
+
+def p_error(p):
+	if p is not None:
+		raise Exception("Syntax error at line %s" % p.lineno)
+	else:
+		raise Exception("Syntax error at last line")
+
+
+
+
+def parse(input_file_name):
+    lexer = lex.lex()
+    parser = yacc.yacc()
+    input_file = open(input_file_name, 'r')
+    text = input_file.read()
+    input_file.close()
+    output_file_name = input_file_name + '.out'
+    output_file = open(output_file_name, 'w')
     try:
-        l, text = make_list(file_name)
-        relations_list = []
-        p = Parser(l)
-        while p.current:
-            tree = p.relation()
-            if tree == None:
-                if p.last_correct == None:
-                    msg = "Syntax error: at line 1, colon 0"
-                else:
-                    msg = "Syntax error: at line %d, colon %d" % (p.last_correct.lineno, pos_in_line(text, p.last_correct))   
-                return False, msg, None             
-            elif tree == -1:
-                return True, "All relations are correct:", relations_list
-            else:
-                relations_list.append(pr(tree))
+        result=parser.parse(text)
+        output_file.write(result)
+        output_file.close()
+        return True, result
     except Exception as msg:
-        return False, str(msg), None
+        output_file.write(str(msg))
+        output_file.close()
+        return False, str(msg)
 
-
-if __name__ == "__main__":
-    is_correct, msg, l = parse(sys.argv[1])
-    print(msg)
-    if is_correct:
-        for r in l:
-            print(r)
+if __name__ == '__main__':
+	is_c, res = parse(sys.argv[1])

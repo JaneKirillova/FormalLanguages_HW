@@ -1,65 +1,48 @@
 from parser import parse
 
-def test_correct_1():
-	is_correct, msg, l = parse('test/correct_1.txt')
+def test_correct():
+	is_correct, res = parse('test/correct')
 	assert(is_correct)
-	assert(msg == "All relations are correct:")
-	right_list = ["( f )", "(( f ) :- ( g ))", "(( f ) :- ((( g ) , ( h )) ; ( t )))", "(( f ) :- (( g ) , (( h ) ; ( t ))))"]
-	assert(l == right_list)
-
-
-def test_correct_2():
-	is_correct, msg, l = parse('test/correct_2.txt')
-	assert(is_correct)
-	assert(msg == "All relations are correct:")
-	right_list = ["( f )", "(( f ) :- (( a ) , (( h ) , ( k ))))", "(( f ) :- (((( h ) , ( k )) , ( l )) ; ( m )))"]
-	assert(l == right_list)
-
-def test_correct_3():
-	is_correct, msg, l = parse('test/correct_3.txt')
-	assert(is_correct)
-	assert(msg == "All relations are correct:")
-	right_list = ["(( abc ) :- ( fgh ))", "(( f ) :- (((( gh ) , ( kl )) ; ((( qw ) , ( po )) ; ( k ))) ; ( p )))"]
-	assert(l == right_list)
 
 def test_incorrect_1():
-	is_correct, msg, l = parse('test/incorrect_1.txt')
+	is_correct, res = parse('test/incorrect_1')
 	assert(not is_correct)
-	assert(msg == "Syntax error: at line 2, colon 6")
-	assert(l == None)
+	assert(res == 'Syntax error at line 1')
 
 def test_incorrect_2():
-	is_correct, msg, l = parse('test/incorrect_2.txt')
+	is_correct, res = parse('test/incorrect_2')
 	assert(not is_correct)
-	assert(msg == "Syntax error: at line 1, colon 1")
-	assert(l == None)
+	assert(res == 'Syntax error at line 3')
 
 def test_incorrect_3():
-	is_correct, msg, l = parse('test/incorrect_3.txt')
+	is_correct, res = parse('test/incorrect_3')
 	assert(not is_correct)
-	assert(msg == "Syntax error: at line 2, colon 12")
-	assert(l == None)
+	assert(res == 'Syntax error at line 5')
 
 def test_incorrect_4():
-	is_correct, msg, l = parse('test/incorrect_4.txt')
+	is_correct, res = parse('test/incorrect_4')
 	assert(not is_correct)
-	assert(msg == "Syntax error: at line 1, colon 12")
-	assert(l == None)
+	assert(res == 'Syntax error at line 2')
 
 def test_incorrect_5():
-	is_correct, msg, l = parse('test/incorrect_5.txt')
+	is_correct, res = parse('test/incorrect_5')
 	assert(not is_correct)
-	assert(msg == "Syntax error: illegal character '=' at position 2")
-	assert(l == None)
+	assert(res == 'Syntax error at line 2')
+
+def test_incorrect_6():
+	is_correct, res = parse('test/incorrect_6')
+	assert(not is_correct)
+	assert(res == 'Syntax error at line 1')
 
 
-if __name__ == "__main__":
-	test_correct_1()
-	test_correct_2()
-	test_correct_3()
+
+
+if __name__ == '__main__':
+	test_correct()
 	test_incorrect_1()
 	test_incorrect_2()
 	test_incorrect_3()
 	test_incorrect_4()
 	test_incorrect_5()
+	test_incorrect_6()
 	print("All tests pass!")
