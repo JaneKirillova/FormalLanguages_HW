@@ -1,127 +1,66 @@
-'''
-input ----> relation. | relation . input
-relation -> atom      | atom :- disj
-disj -----> conj      | conj ; disj
-conj -----> expr      | expr , conj
-expr -----> atom      | ( disj )
-atom -----> ID        | ID tail
-tail -----> atom      | braces       | braces tail
-braces ---> ( atom )  | ( braces )
-
-
-'''
-
-
-import ply.yacc as yacc
-
-from lex import*
-
+from parsita import *
 import sys
 
-
-def p_input_relation(p):
-	'input : relation DOT'
-	p[0] = p[1]
-
-def p_input_input(p):
-	'input : relation DOT input'
-	p[0] = p[1] + '\n' + p[3]
-
-
-def p_relation_corc(p):
-	'relation : atom CORC disj'
-	p[0] = ':- (' + p[1] + ') (' + p[3] + ')'
-
-def p_relation_dot(p):
-	'relation : atom'
-	p[0] = p[1]
+class Parser(TextParsers, whitespace=r'[ \t\n\r]*'):
+    maybe_id = reg(r'[a-z_][a-zA-Z_0-9]*')
+    ID = pred(maybe_id, lambda x: x != "module" and x != "type", "aaaa")
+    VAR = reg(r'[A-Z][a-zA-Z_0-9]*')
+    DOT = lit('.')
+    DISJ = lit(';')
+    CONJ = lit(',')
+    LBC = lit('(')
+    RBC = lit(')')
+    CORK = reg(r'\:\-')
+    MOD = reg(r'module')
 
 
-def p_disj_disj(p):
-	'disj : conj DISJ disj'
-	p[0] = ' DISJ (' + p[1] + ') (' + p[3] + ')'
+    module = (MOD & ID & DOT) > (lambda xs: "MODULE: " + xs[1] + ".")
+
+    program = ((module & rels) > (lambda xs: xs[0] + "\n" + xs[1])) | rels | module
+
+    rels = ((rel & rels) > (lambda xs: xs[0] + "\n" + xs[1])) | (rel > (lambda x: ''.join(x)))
+
+    rel = ((atom & CORK & disj & DOT) > (lambda xs: ":- (" + xs[0] + ") (" +xs[2] + ")")) | ((atom & DOT) > (lambda xs: xs[0] + "."))
+
+    disj = ((conj & DISJ & disj) > (lambda xs: "DISJ (" + xs[0] + ") (" + xs[2] + ")" )) | conj
+
+    conj = ((expr & CONJ & conj) > (lambda xs: "CONJ (" + xs[0] + ") ("+xs[2] + ")" )) | expr
+
+    expr = ((LBC & disj & RBC) > (lambda xs: " (" + xs[1] + ") ")) | atom
+
+    atom = ((ID & tail) > (lambda xs: "ID(" + xs[0] + ") " +xs[1])) | (ID > (lambda x: "ID(" + x + ")"))
+
+    atom2 = ((ID & tail) > (lambda xs: "ID(" + xs[0] + ") " + xs[1])) | ((VAR & tail) > (lambda xs: "VAR(" + xs[0] + ") " + xs[1])) | (VAR > (lambda x: "VAR(" + x + ")")) | (ID > (lambda x: "ID(" + x + ")"))
+
+    tail = ((braces & tail) > (lambda xs: xs[0] + ' ' + xs[1])) | braces | atom2
+
+    braces = ((LBC & braces & RBC) > (lambda xs: xs[1])) | ((LBC & atom2 & RBC) > (lambda xs: "(" + xs[1] + ")"))
 
 
-def p_disj_conj(p):
-	'disj : conj'
-	p[0] = p[1]
-
-
-def p_conj_conj(p): 
-	'conj : expr CONJ conj'
-	p[0] = ' CONJ (' + p[1] + ') (' + p[3] + ')'
-
-def p_conj_expr(p):
-	'conj : expr'
-	p[0] = p[1]
-
-
-def p_expr_disj(p):
-	'expr : LBC disj RBC'
-	p[0] = '( ' + p[2] + ' )'
-
-def p_expr_atom(p):
-	'expr : atom'
-	p[0] = p[1]
-
-
-def p_atom_id(p):
-	'atom : ID'
-	p[0] = '( ' + p[1] + ' )'
-
-def p_atom_tail(p):
-	'atom : ID tail'
-	p[0] = '( ' + p[1] + ' ) ' + p[2]
-
-
-def p_tail_atom(p):
-	'tail : atom'
-	p[0] = p[1]
-
-
-def p_tail_braces(p):
-	'tail : braces'
-	p[0] = '(' + p[1] + ')'
-
-
-def p_tail_braces_tail(p):
-	'tail : braces tail'
-	p[0] = '(' + p[1] + ')' + p[2]
-
-def p_braces_atom(p):
-	'braces : LBC atom RBC'
-	p[0] = '( ' + p[2] + ' )'
-
-def p_braces_braces(p):
-	'braces : LBC braces RBC'
-	p[0] = '(' + p[2] + ')'
-
-def p_error(p):
-	if p is not None:
-		raise Exception("Syntax error at line %s" % p.lineno)
-	else:
-		raise Exception("Syntax error at last line")
-
-
-
-
-def parse(input_file_name):
-    lexer = lex.lex()
-    parser = yacc.yacc()
+def parser(input_file_name, key):
     input_file = open(input_file_name, 'r')
     text = input_file.read()
     input_file.close()
     output_file_name = input_file_name + '.out'
     output_file = open(output_file_name, 'w')
-    try:
-        result=parser.parse(text)
-        output_file.write(result)
-        output_file.close()
-        return True, result
-    except Exception as msg:
-        output_file.write(str(msg))
-        output_file.close()
-        return False, str(msg)
+    if key == "--atom":
+        res = Parser.atom.parse(text)
+    if key == "--relation":
+        res = Parser.rel.parse(text)
+    if key == "--relations":
+        res = Parser.rels.parse(text)
+    if key == "--prog" or key == "":
+    	res = Parser.program.parse(text)
+    if type(res) == Success:
+        output_file.write(res.value)
+    else:
+    	output_file.write(res.message)
+    output_file.close()
+    return res
+
 
 if __name__ == '__main__':
-	is_c, res = parse(sys.argv[1])
+    if len(sys.argv) > 2:
+        res = parser(sys.argv[1], sys.argv[2])
+    else:
+        res = parser(sys.argv[1], "")
