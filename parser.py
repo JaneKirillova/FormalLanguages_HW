@@ -34,7 +34,7 @@ class Parser(TextParsers, whitespace=r'[ \t\n\r]*'):
 
     tail = ((braces & tail) > (lambda xs: xs[0] + ' ' + xs[1])) | braces | atom2
 
-    braces = ((LBC & braces & RBC) > (lambda xs: xs[1])) | ((LBC & atom2 & RBC) > (lambda xs: "(" + xs[1] + ")"))
+    braces = ((LBC & braces & RBC) > (lambda xs: xs[1])) | ((LBC & atom2 & RBC) > (lambda xs: xs[1]))
 
 
 def parser(input_file_name, key):
@@ -61,6 +61,6 @@ def parser(input_file_name, key):
 
 if __name__ == '__main__':
     if len(sys.argv) > 2:
-        res = parser(sys.argv[1], sys.argv[2])
+        res = parser(sys.argv[2], sys.argv[1])
     else:
         res = parser(sys.argv[1], "")
